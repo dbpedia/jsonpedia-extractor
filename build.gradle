@@ -1,0 +1,16 @@
+apply plugin: 'java'
+apply plugin: 'application'
+apply plugin: 'idea'
+
+sourceCompatibility = '1.7' // migrate to 1.8
+
+mainClassName = 'org.dbpedia.analysis.IndexCreator'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.apache.lucene:lucene-core:4.8.0'
+}
+

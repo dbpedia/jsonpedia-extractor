@@ -1,17 +1,46 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:0.8'
+    }
+}
+
+apply plugin: 'shadow'
 apply plugin: 'java'
 apply plugin: 'application'
 apply plugin: 'idea'
 
-sourceCompatibility = '1.7' // migrate to 1.8
+sourceCompatibility = '1.7'
+targetCompatibility = '1.7'
 
-mainClassName = 'org.dbpedia.analysis.IndexCreator'
+version = '0.1'
+mainClassName = 'org.dbpedia.analysis.IndexIngester'
+
+jar {
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+}
+
+shadow {
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+}
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
     compile 'org.apache.lucene:lucene-core:4.8.0'
     compile 'org.apache.lucene:lucene-analyzers-common:4.8.0'
+    compile 'org.apache.lucene:lucene-facet:4.8.0'
+    compile 'com.google.guava:guava:17.0'
+
+    // jsonpedia
+    compile 'com.machinelinking:jsonpedia:1.0-SNAPSHOT'
 }
 

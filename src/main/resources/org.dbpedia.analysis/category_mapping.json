@@ -1,0 +1,8 @@
+"category": {
+  "properties": {
+      "wikipedia_page": {"type": "string", "analyzer": "whitespace_analyzer"},
+      "wikipedia_categories": {"type": "string", "analyzer": "whitespace_analyzer"},
+      "section": {"type": "string", "analyzer": "whitespace_analyzer"},
+      "ancestors": {"type": "string", "analyzer": "whitespace_analyzer"}
+  }
+}

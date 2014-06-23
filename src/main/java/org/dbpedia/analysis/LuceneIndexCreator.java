@@ -4,23 +4,28 @@ import com.machinelinking.util.FileUtil;
 import com.machinelinking.wikimedia.ProcessorReport;
 import com.machinelinking.wikimedia.WikiDumpMultiThreadProcessor;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.facet.taxonomy.TaxonomyWriter;
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.store.*;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.Version;
 import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 
 /**
  * <strong>IndexCreator</strong> populates a lucene faceted index with data coming form the jsonpedia processing of a wikipedia dump.
  */
-public class IndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndexPageProcessor> {
+public class LuceneIndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndexPageProcessor> {
 
     private final FacetsConfig config = new FacetsConfig();
     private IndexWriter indexWriter;
@@ -35,7 +40,7 @@ public class IndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndexPagePr
             final ProcessorReport report = super.process(
                     pagePrefix,
                     bis,
-                    super.getBestNumberOfThreads() //monothreaded to avoid issues with taxonomy writer
+                    super.getBestNumberOfThreads()
             );
             return report;
         } catch (SAXException|IOException exc){
@@ -52,9 +57,9 @@ public class IndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndexPagePr
      * @param taxonomyPath path to the taxonomy folder
      * @param indexPath path to the index folder
      * @param appendToIndex if set to false this will delete the old index instead of appending to it
-     * @throws IOException if taxonomyPath or indexPath are not valid folders
+     * @throws java.io.IOException if taxonomyPath or indexPath are not valid folders
      */
-    public IndexCreator(String indexPath, String taxonomyPath, boolean appendToIndex) throws IOException {
+    public LuceneIndexCreator(String indexPath, String taxonomyPath, boolean appendToIndex) throws IOException {
         super();
         Analyzer an = new StandardAnalyzer(Version.LUCENE_48);
         IndexWriterConfig iwc = new IndexWriterConfig(Version.LUCENE_48, an);

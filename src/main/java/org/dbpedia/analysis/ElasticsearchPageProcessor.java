@@ -1,42 +1,39 @@
 package org.dbpedia.analysis;
 
-import com.google.common.base.Joiner;
 import com.machinelinking.enricher.WikiEnricher;
 import com.machinelinking.enricher.WikiEnricherFactory;
-import com.machinelinking.pagestruct.WikiTextSerializerHandlerFactory;
 import com.machinelinking.parser.DocumentSource;
-import com.machinelinking.parser.WikiTextParser;
-import com.machinelinking.parser.WikiTextParserException;
 import com.machinelinking.serializer.JSONSerializer;
 import com.machinelinking.util.JSONUtils;
 import com.machinelinking.wikimedia.PageProcessor;
 import com.machinelinking.wikimedia.WikiPage;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.facet.FacetField;
-import org.apache.lucene.facet.FacetsConfig;
-import org.apache.lucene.facet.taxonomy.TaxonomyWriter;
-import org.apache.lucene.index.IndexWriter;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.elasticsearch.common.inject.internal.Join;
+import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import static org.elasticsearch.common.xcontent.XContentFactory.*;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URL;
-import java.util.Arrays;
 
-public class LuceneIndexPageProcessor implements PageProcessor {
+public class ElasticsearchPageProcessor implements PageProcessor {
+
+    private static String indexName;
+    private static String typeName;
+
     private long processedPages = 0;
     private long errorPages = 0;
-
-    private final IndexWriter indexWriter;
-    private final TaxonomyWriter taxonomyWriter;
-    private final FacetsConfig config;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public LuceneIndexPageProcessor(IndexWriter indexWriter, TaxonomyWriter taxonomyWriter, FacetsConfig config){
-        this.taxonomyWriter = taxonomyWriter;
-        this.indexWriter = indexWriter;
-        this.config = config;
+    private Client client;
+
+    public ElasticsearchPageProcessor(Client client, String indexName, String typeName){
+        this.typeName = typeName;
+        this.indexName = indexName;
+        this.client = client;
     }
 
     /**
@@ -56,11 +53,11 @@ public class LuceneIndexPageProcessor implements PageProcessor {
     }
 
     /**
-     * indexes a single page into the faceted index
-     * @param root root of the json tree.
-     * @throws IOException
+     * indexes a single page into elasticsearch
+     * @param root root of the json tree
+     * @throws java.io.IOException
      */
-    private void indexSections(JsonNode root, String pageTitle) throws IOException {
+    private boolean indexSections(JsonNode root, String pageTitle) throws IOException {
         JsonNode sections = root.path("sections");
 
         if (sections.isMissingNode()) {
@@ -68,33 +65,34 @@ public class LuceneIndexPageProcessor implements PageProcessor {
         }
 
         String[] cats = mapper.readValue(root.path("categories").path("content"), String[].class);
-        String categories = cats == null ? "" : Joiner.on(' ').join(cats);
+        if(cats == null){
+            cats = new String[]{};
+        }
+
+        XContentBuilder b;
+        BulkRequestBuilder bulkRequest = client.prepareBulk();
 
         JsonNode currentSection = sections.path(0);
         int section_idx = 1;
         while(!currentSection.isMissingNode()){
-            Document doc = new Document();
-            doc.add(new FacetField("wikipedia_page", pageTitle));
-            doc.add(new FacetField("section", currentSection.path("title").getTextValue()));
+            b = jsonBuilder().startObject();
+            b.field("wikipedia_page", pageTitle);
+            b.field("wikipedia_categories", cats);
+            b.field("section", currentSection.path("title").getTextValue());
             String[] ancestors = getAncestors(sections, currentSection);
-
-            if(categories != ""){
-                doc.add(new FacetField("wikipedia_categories", categories));
-
-            }
-            if(ancestors.length > 0){
-                doc.add(new FacetField("ancestors", ancestors));
-            }
-            //TODO: links and refs
-            try {
-                indexWriter.addDocument(config.build(taxonomyWriter, doc));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            b.field("ancestors", ancestors);
             currentSection = sections.path(section_idx);
+            b.endObject();
+            bulkRequest.add(client.prepareIndex(indexName, typeName).setSource(b));
+
+            // next section
             section_idx++;
         }
-
+        if(bulkRequest.numberOfActions() > 1){
+            BulkResponse bulkResponse = bulkRequest.execute().actionGet();
+            return !bulkResponse.hasFailures();
+        }
+        return true;
     }
 
     @Override
@@ -103,9 +101,6 @@ public class LuceneIndexPageProcessor implements PageProcessor {
             final ByteArrayOutputStream jsonBuffer = new ByteArrayOutputStream();
             final JSONSerializer serializer = new JSONSerializer(jsonBuffer);
 
-//            final WikiTextParser parser = new WikiTextParser(
-//                    WikiTextSerializerHandlerFactory.getInstance().createSerializerHandler(serializer)
-//            );
             final WikiEnricher enricher = WikiEnricherFactory.getInstance().createFullyConfiguredInstance(
                     WikiEnricherFactory.Extractors
             );
@@ -119,17 +114,19 @@ public class LuceneIndexPageProcessor implements PageProcessor {
             );
 
             final JsonNode root = JSONUtils.parseJSON(jsonBuffer.toString()); // TODO: optimize
-            indexSections(root, page.getTitle());
-            processedPages++;
-            if(processedPages % 100 == 0){
+            boolean success = indexSections(root, page.getTitle());
+            if(success){
+                processedPages++;
+            } else {
+                errorPages++;
+            }
+            if((processedPages + errorPages) % 100 == 0){
                 System.out.println("*************************************************");
             }
-//        } catch (IOException|WikiTextParserException|RuntimeException exc) {
         } catch(Exception e) {
-//            e.printStackTrace();
+            e.printStackTrace();
             errorPages++;
         }
-
     }
 
     @Override

@@ -16,7 +16,7 @@ sourceCompatibility = '1.7'
 targetCompatibility = '1.7'
 
 version = '0.1'
-mainClassName = 'org.dbpedia.analysis.IndexIngester'
+mainClassName = 'org.dbpedia.analysis.LuceneIndexMain'
 
 jar {
     manifest {
@@ -39,8 +39,9 @@ dependencies {
     compile 'org.apache.lucene:lucene-analyzers-common:4.8.0'
     compile 'org.apache.lucene:lucene-facet:4.8.0'
     compile 'com.google.guava:guava:17.0'
+    compile 'org.elasticsearch:elasticsearch:1.2.1'
 
     // jsonpedia
-    compile 'com.machinelinking:jsonpedia:1.0-SNAPSHOT'
+    compile 'com.machinelinking:jsonpedia:1.2-SNAPSHOT'
 }
 

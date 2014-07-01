@@ -1,0 +1,27 @@
+{
+    "settings": {
+        "index": {
+            "analysis": {
+                "analyzer": {
+                    "lowercase_analyzer": {
+                        "type": "custom",
+                        "tokenizer": "keyword",
+                        "filter": [
+                            "lowercase"
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "mappings": {
+        "category": {
+            "properties": {
+                "wikipedia_page": {"type": "string", "analyzer": "lowercase_analyzer"},
+                "wikipedia_categories": {"type": "string", "analyzer": "lowercase_analyzer"},
+                "section": {"type": "string", "analyzer": "lowercase_analyzer"},
+                "ancestors": {"type": "string", "analyzer": "lowercase_analyzer"}
+            }
+        }
+    }
+}

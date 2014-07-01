@@ -4,15 +4,16 @@ import com.machinelinking.util.FileUtil;
 import com.machinelinking.wikimedia.ProcessorReport;
 import com.machinelinking.wikimedia.WikiDumpMultiThreadProcessor;
 import org.apache.commons.io.IOUtils;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.client.Client;
-import org.xml.sax.SAXException;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.xml.sax.SAXException;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.Charset;
 
@@ -21,8 +22,8 @@ import java.nio.charset.Charset;
  */
 public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<ElasticsearchPageProcessor> {
 
-    private static final String indexName = "jsonpedia-extractors";
-    private static final String typeName = "categories";
+    private static final String indexName = "jsonpedia";
+    private static final String typeName = "category";
 
     private final Client client;
 
@@ -45,6 +46,14 @@ public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<Elas
     public ProcessorReport export(URL pagePrefix, File input) throws IOException {
         return this.export(pagePrefix, FileUtil.openDecompressedInputStream(input));
     }
+
+    public String getFromClasspath(String resourcePath) throws IOException {
+        return IOUtils.toString(
+                getClass().getClassLoader().getResourceAsStream(resourcePath),
+                Charset.defaultCharset()
+        );
+    }
+
 
     /**
      * @param elasticsearchCluster list of host:port urls for the elasticsearch machines
@@ -86,16 +95,23 @@ public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<Elas
                         .actionGet();
             }
 
-
-            String config = new String(IOUtils.toByteArray(
-                    getClass().getClassLoader().getResourceAsStream("org.dbpedia.analysis/category_mapping.json")
-            ), Charset.defaultCharset());
+            String settings = getFromClasspath("org/dbpedia/analysis/settings.json");
 
             this.client.admin().indices()
                     .prepareCreate(indexName)
-                    .setSource(config)
+                    .setSource(settings)
                     .execute()
                     .actionGet();
+            this.client.admin().indices()
+                    .prepareFlush(indexName)
+                    .execute()
+                    .actionGet();
+
+            try{
+                Thread.sleep(4000);
+            } catch (Exception e){
+
+            }
         }
     }
 

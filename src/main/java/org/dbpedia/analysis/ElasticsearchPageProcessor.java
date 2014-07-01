@@ -9,15 +9,15 @@ import com.machinelinking.wikimedia.PageProcessor;
 import com.machinelinking.wikimedia.WikiPage;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.util.TokenBuffer;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.xcontent.XContentBuilder;
-import static org.elasticsearch.common.xcontent.XContentFactory.*;
-
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.*;
 
 public class ElasticsearchPageProcessor implements PageProcessor {
 
@@ -88,6 +88,7 @@ public class ElasticsearchPageProcessor implements PageProcessor {
             // next section
             section_idx++;
         }
+
         if(bulkRequest.numberOfActions() > 1){
             BulkResponse bulkResponse = bulkRequest.execute().actionGet();
             return !bulkResponse.hasFailures();
@@ -98,8 +99,8 @@ public class ElasticsearchPageProcessor implements PageProcessor {
     @Override
     public void processPage(String pagePrefix, String threadId, WikiPage page) {
         try {
-            final ByteArrayOutputStream jsonBuffer = new ByteArrayOutputStream();
-            final JSONSerializer serializer = new JSONSerializer(jsonBuffer);
+            TokenBuffer buffer = JSONUtils.createJSONBuffer();
+            final JSONSerializer serializer = new JSONSerializer(buffer);
 
             final WikiEnricher enricher = WikiEnricherFactory.getInstance().createFullyConfiguredInstance(
                     WikiEnricherFactory.Extractors
@@ -107,13 +108,12 @@ public class ElasticsearchPageProcessor implements PageProcessor {
 
             enricher.enrichEntity(
                     new DocumentSource(
-                            new URL("http://en.wikipedia.org/"),
+                            new URL("http://bla.com/"), // not used
                             page.getContent()
                     ),
                     serializer
             );
-
-            final JsonNode root = JSONUtils.parseJSON(jsonBuffer.toString()); // TODO: optimize
+            final JsonNode root = JSONUtils.bufferToJSONNode(buffer);
             boolean success = indexSections(root, page.getTitle());
             if(success){
                 processedPages++;

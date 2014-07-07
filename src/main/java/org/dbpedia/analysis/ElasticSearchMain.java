@@ -63,6 +63,11 @@ public class ElasticSearchMain {
     }
 
     public static void main(String[] args){
-        System.exit(new ElasticSearchMain().run(args));
+        try {
+            System.exit(new ElasticSearchMain().run(args));
+        } catch (Throwable t) {
+            t.printStackTrace();
+            System.exit(1);
+        }
     }
 }

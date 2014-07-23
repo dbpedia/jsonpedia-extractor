@@ -9,7 +9,9 @@ import com.machinelinking.wikimedia.PageProcessor;
 import com.machinelinking.wikimedia.WikiPage;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.util.TokenBuffer;
+import org.codehaus.jettison.json.JSONArray;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
@@ -37,6 +39,51 @@ public class ElasticsearchPageProcessor implements PageProcessor {
     }
 
     /**
+     * Get all the links from the given json node
+     * Both external links and internal references in wikipedia have the same json format in jsonpedia.
+     */
+    private Link[] getLinks(JsonNode l) throws IOException {
+        if(l.isMissingNode()){
+            return new Link[]{};
+        }
+
+        Link[] links = mapper.readValue(l, Link[].class);
+        if(links == null){
+            return new Link[]{};
+        }
+        return links;
+    }
+
+    /**
+     * addLinks add every link in l that belongs to the current section in the json builder
+     * @param outName name of the key for the json document (e.g.: links or references)
+     * @param l list of all links
+     * @param currentSection current section
+     * @param b json builder
+     */
+    private void addLinks(String outName, Link[] l, int currentSection, XContentBuilder b) throws IOException {
+        b.startArray(outName);
+        for(Link li: l){
+            if(li.section_idx != currentSection){
+                continue;
+            }
+            b.startObject();
+            if(li.description == null || li.description == ""){
+                if(outName == "links"){
+                    li.description = "__MISSING__";
+                } else {
+                    li.description = li.url;
+                }
+            }
+            b.field("name", li.description);
+            b.field("url", li.url);
+            b.endObject();
+        }
+        b.endArray();
+    }
+
+
+    /**
      * Get all the ancestors of the given section.
      * @return an array containing the names of all the ancestors
      */
@@ -59,6 +106,8 @@ public class ElasticsearchPageProcessor implements PageProcessor {
      */
     private boolean indexSections(JsonNode root, String pageTitle) throws IOException {
         JsonNode sections = root.path("sections");
+        Link[] links = getLinks(root.path("links"));
+        Link[] references = getLinks(root.path("references"));
 
         if (sections.isMissingNode()) {
             throw new IOException("sections were expected in the json document"); //TODO: specify some other type of exception
@@ -72,8 +121,12 @@ public class ElasticsearchPageProcessor implements PageProcessor {
         XContentBuilder b;
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
+//        ArrayNode arr = (ArrayNode)sections.path(0);
         JsonNode currentSection = sections.path(0);
-        int section_idx = 1;
+//        for(JsonNode currentSection: arr){
+//
+//        }
+        int currentSectionIdx = 1;
         while(!currentSection.isMissingNode()){
             b = jsonBuilder().startObject();
             b.field("wikipedia_page", pageTitle);
@@ -81,12 +134,14 @@ public class ElasticsearchPageProcessor implements PageProcessor {
             b.field("section", currentSection.path("title").getTextValue());
             String[] ancestors = getAncestors(sections, currentSection);
             b.field("ancestors", ancestors);
-            currentSection = sections.path(section_idx);
+            addLinks("links", links, currentSectionIdx, b);
+            addLinks("references", references, currentSectionIdx, b);
+            currentSection = sections.path(currentSectionIdx);
             b.endObject();
             bulkRequest.add(client.prepareIndex(indexName, typeName).setSource(b));
 
             // next section
-            section_idx++;
+            currentSectionIdx++;
         }
 
         if(bulkRequest.numberOfActions() > 1){
@@ -108,7 +163,7 @@ public class ElasticsearchPageProcessor implements PageProcessor {
 
             enricher.enrichEntity(
                     new DocumentSource(
-                            new URL("http://bla.com/"), // not used
+                            new URL(pagePrefix), // not used
                             page.getContent()
                     ),
                     serializer

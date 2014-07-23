@@ -3,11 +3,18 @@
         "index": {
             "analysis": {
                 "analyzer": {
-                    "lowercase_analyzer": {
+                    "lowercase": {
                         "type": "custom",
                         "tokenizer": "keyword",
                         "filter": [
                             "lowercase"
+                        ]
+                    },
+                    "kstem": {
+                        "type": "custom",
+                        "tokenizer": "standard",
+                        "filter": [
+                            "lowercase", "stop", "kstem"
                         ]
                     }
                 }
@@ -17,10 +24,93 @@
     "mappings": {
         "category": {
             "properties": {
-                "wikipedia_page": {"type": "string", "analyzer": "lowercase_analyzer"},
-                "wikipedia_categories": {"type": "string", "analyzer": "lowercase_analyzer"},
-                "section": {"type": "string", "analyzer": "lowercase_analyzer"},
-                "ancestors": {"type": "string", "analyzer": "lowercase_analyzer"}
+
+                "wikipedia_page": {
+                    "type": "string",
+                    "analyzer": "lowercase"
+                },
+                "wikipedia_categories": {
+                    "type": "string",
+                    "analyzer": "lowercase"
+                },
+                
+                "section": {
+                    "type": "multi_field",
+                    "fields": {
+                        "section": {"type": "string", "analyzer": "lowercase"},
+                        "section_tokens": {"type": "string", "analyzer": "kstem"}
+                    }
+                },
+                "links": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "name": {
+                            "type": "multi_field",
+                            "fields": {
+                                "name": {
+                                    "type": "string",
+                                    "analyzer": "lowercase"
+                                },
+                                "name_tokens": {
+                                    "type": "string",
+                                    "analyzer": "stop"
+                                }
+                            }
+                        }
+                    }
+                },
+                "references": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        },
+                        "name": {
+                            "type": "multi_field",
+                            "fields": {
+                                "name": {
+                                    "type": "string",
+                                    "analyzer": "lowercase"
+                                },
+                                "name_tokens": {
+                                    "type": "string",
+                                    "analyzer": "stop"
+                                }
+                            }
+                        }
+                    }
+                },
+                "ancestors": {
+                    "type": "multi_field",
+                    "fields": {
+                        "ancestors": {
+                            "type": "string",
+                            "analyzer": "lowercase"
+                        },
+                        "ancestors_keywords": {
+                            "type": "string",
+                            "analyzer": "kstem"
+                        }
+                    }
+                },
+                "content": {
+                    "type": "multi_field",
+                    "fields": {
+                        "content": {
+                            "type": "string",
+                            "analyzer": "stop"
+                        },
+                        "plain": {
+                            "type": "string",
+                            "index": "not_analyzed"
+                        }
+                    }
+                }
             }
         }
     }

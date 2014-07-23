@@ -81,11 +81,11 @@ public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<Elas
         this.client = cl;
 
         if(!append){
-            this.client.admin()
-                    .indices()
-                    .prepareAnalyze("lowercase_analyzer")
-                    .setAnalyzer("keyword")
-                    .setTokenFilters("whitespace");
+//            this.client.admin()
+//                    .indices()
+//                    .prepareAnalyze("lowercase_analyzer")
+//                    .setAnalyzer("keyword")
+//                    .setTokenFilters("whitespace");
 
             final IndicesExistsResponse res = client.admin().indices().prepareExists(indexName).execute().actionGet();
             if (res.isExists()) {
@@ -106,12 +106,6 @@ public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<Elas
                     .prepareFlush(indexName)
                     .execute()
                     .actionGet();
-
-            try{
-                Thread.sleep(4000);
-            } catch (Exception e){
-
-            }
         }
     }
 

@@ -46,7 +46,7 @@ public class ElasticSearchMain {
                     new String[]{this.elasticsearchMachine},
                     append
             );
-            final ProcessorReport rep = creator.export(new URL("http://en.wikipedia.org"), inputPath);
+            final ProcessorReport rep = creator.export(new URL("http://en.wikipedia.org/wiki/"), inputPath); // careful, needs trailing slash
             System.out.println(rep);
             exitCode = 0;
         } catch(IOException ie) {

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Wikipedia section explorer</title>
+
+  <script type="text/javascript" src="vendor/jquery/1.7.1/jquery-1.7.1.min.js"></script>
+
+  <link rel="stylesheet" href="vendor/bootstrap/css/bootstrap.min.css">
+  <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.min.js"></script>
+
+  <script type="text/javascript" src="vendor/linkify/1.0/jquery.linkify-1.0-min.js"></script>
+
+  <link rel="stylesheet" href="vendor/jquery-ui-1.8.18.custom/jquery-ui-1.8.18.custom.css">
+  <script type="text/javascript" src="vendor/jquery-ui-1.8.18.custom/jquery-ui-1.8.18.custom.min.js"></script>
+
+  <script type="text/javascript" src="jquery.facetview.js"></script>
+
+  <link rel="stylesheet" href="css/facetview.css">
+
+  <link rel="stylesheet" href="css/style.css">
+
+  <script type="text/javascript">
+jQuery(document).ready(function($) {
+  $('.facet-view-simple').facetview({
+    search_url: 'http://elasticsearch:9200/jsonpedia/section/_search?',
+    search_index: 'elasticsearch',
+    facets: [
+        {'field':'title', 'display': 'Section Title'},
+        {'field':'wikipedia_page', 'display': 'Page Title'},
+        {'field':'wikipedia_categories', 'display': 'Categories'},
+        {'field':'ancestors', 'display': 'Ancestors'},
+        {'field':'ancestors.tokens', 'display': 'Ancestors Keywords'},
+        {'field':'references.name', 'display': 'Reference Label'},
+        {'field':'references.name.tokens', 'display': 'Reference Label Keywords'},
+        {'field':'references.url', 'display': 'Reference URL'}
+    ],
+    paging: {
+      from: 0,
+      size: 100
+    }
+  });
+  // set up form
+  $('.demo-form').submit(function(e) {
+    e.preventDefault();
+    var $form = $(e.target);
+    var _data = {};
+    $.each($form.serializeArray(), function(idx, item) {
+      _data[item.name] = item.value;
+    });
+    $('.facet-view-here').facetview(_data);
+  });
+});
+  </script>
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="navbar-inner">
+    <div class="container">
+      <a class="brand" href="#">Wikipedia section explorer</a>
+      <ul class="nav">
+        <li><a href="#">Home</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="content">
+    <div class="page-header">
+      <h1>
+        Wikipedia section explorer
+      </h1>
+    </div>
+    <h4>
+      This exploration platform is part of the 2014 DBpedia GSoC project
+      <a href="#">fine grained massive extraction of wikipedia content</a>
+    </h4>
+    <h4>
+      Its primary purpose is to help people understand which data they want to extract by allowing interactive filtering of data.
+    </h4>
+
+    <h2>Tutorial:</h2>
+    <p>This effort was focused on wikipedia sections as we believe that they could be a very useful source of structured data in some cases.</p>
+    <p>On the left side of the page are all the available facets that can be selected</p>
+    <p>Each time a selection is made it automatically restricts the other choices</p>
+    <p>To allow further queries the search box below supports lucene query syntax. This also automatically filters the options.</p>
+    <div class="facet-view-simple"></div>
+
+  </div>
+  <footer>
+  <p>Facetview: &copy; Open Knowledge Foundation and Cottage Labs 2011. <a
+    href="http://opendefinition.org/">Openly Licensed</a>.</p>
+  </footer>
+</div>
+</body>
+</html>

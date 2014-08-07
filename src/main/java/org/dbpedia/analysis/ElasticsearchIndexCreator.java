@@ -23,7 +23,8 @@ import java.nio.charset.Charset;
 public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<ElasticsearchPageProcessor> {
 
     private static final String indexName = "jsonpedia";
-    private static final String typeName = "category";
+    private static final String sectionTypeName = "section";
+    private static final String pageTypeName = "page";
 
     private final Client client;
 
@@ -81,12 +82,6 @@ public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<Elas
         this.client = cl;
 
         if(!append){
-//            this.client.admin()
-//                    .indices()
-//                    .prepareAnalyze("lowercase_analyzer")
-//                    .setAnalyzer("keyword")
-//                    .setTokenFilters("whitespace");
-
             final IndicesExistsResponse res = client.admin().indices().prepareExists(indexName).execute().actionGet();
             if (res.isExists()) {
                 this.client.admin().indices()
@@ -116,7 +111,7 @@ public class ElasticSearchIndexCreator extends WikiDumpMultiThreadProcessor<Elas
 
     @Override
     public ElasticsearchPageProcessor initProcessor(int i) {
-        return new ElasticsearchPageProcessor(client, indexName, typeName);
+        return new ElasticsearchPageProcessor(client, indexName, pageTypeName, sectionTypeName);
     }
 
     @Override

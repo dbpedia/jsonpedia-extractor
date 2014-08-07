@@ -9,9 +9,7 @@ import com.machinelinking.wikimedia.PageProcessor;
 import com.machinelinking.wikimedia.WikiPage;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.util.TokenBuffer;
-import org.codehaus.jettison.json.JSONArray;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.Client;
@@ -24,7 +22,8 @@ import static org.elasticsearch.common.xcontent.XContentFactory.*;
 public class ElasticsearchPageProcessor implements PageProcessor {
 
     private static String indexName;
-    private static String typeName;
+    private static String sectionTypeName;
+    private static String pageTypeName;
 
     private long processedPages = 0;
     private long errorPages = 0;
@@ -32,8 +31,9 @@ public class ElasticsearchPageProcessor implements PageProcessor {
 
     private Client client;
 
-    public ElasticsearchPageProcessor(Client client, String indexName, String typeName){
-        this.typeName = typeName;
+    public ElasticsearchPageProcessor(Client client, String indexName, String pageTypeName, String sectionTypeName){
+        this.pageTypeName = pageTypeName;
+        this.sectionTypeName = sectionTypeName;
         this.indexName = indexName;
         this.client = client;
     }
@@ -99,6 +99,15 @@ public class ElasticsearchPageProcessor implements PageProcessor {
         return ancestors_str;
     }
 
+    private boolean indexPage(JsonNode root, String pageTitle) throws IOException {
+        XContentBuilder b = jsonBuilder()
+                .startObject()
+                    .field("title", pageTitle)
+                    .field("content", root.asText())
+                .endObject();
+        return client.prepareIndex(indexName, pageTypeName).setSource(b).execute().actionGet().isCreated();
+    }
+
     /**
      * indexes a single page into elasticsearch
      * @param root root of the json tree
@@ -121,11 +130,8 @@ public class ElasticsearchPageProcessor implements PageProcessor {
         XContentBuilder b;
         BulkRequestBuilder bulkRequest = client.prepareBulk();
 
-//        ArrayNode arr = (ArrayNode)sections.path(0);
         JsonNode currentSection = sections.path(0);
-//        for(JsonNode currentSection: arr){
-//
-//        }
+
         int currentSectionIdx = 1;
         while(!currentSection.isMissingNode()){
             b = jsonBuilder().startObject();
@@ -138,7 +144,7 @@ public class ElasticsearchPageProcessor implements PageProcessor {
             addLinks("references", references, currentSectionIdx, b);
             currentSection = sections.path(currentSectionIdx);
             b.endObject();
-            bulkRequest.add(client.prepareIndex(indexName, typeName).setSource(b));
+            bulkRequest.add(client.prepareIndex(indexName, sectionTypeName).setSource(b));
 
             // next section
             currentSectionIdx++;
@@ -169,7 +175,8 @@ public class ElasticsearchPageProcessor implements PageProcessor {
                     serializer
             );
             final JsonNode root = JSONUtils.bufferToJSONNode(buffer);
-            boolean success = indexSections(root, page.getTitle());
+            boolean success = indexPage(root, page.getTitle());
+            boolean success2 = indexSections(root, page.getTitle());
             if(success){
                 processedPages++;
             } else {

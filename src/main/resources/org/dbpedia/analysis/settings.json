@@ -22,9 +22,21 @@
         }
     },
     "mappings": {
-        "category": {
+        "page": {
             "properties": {
-
+                "title": {
+                    "type": "string",
+                    "analyzer": "lowercase"
+                },
+                "content": {
+                    "type": "string",
+                    "store": "false",
+                    "index": "no"
+                }
+            }
+        },
+        "section": {
+            "properties": {
                 "wikipedia_page": {
                     "type": "string",
                     "analyzer": "lowercase"
@@ -34,11 +46,11 @@
                     "analyzer": "lowercase"
                 },
                 
-                "section": {
+                "title": {
                     "type": "multi_field",
                     "fields": {
-                        "section": {"type": "string", "analyzer": "lowercase"},
-                        "section_tokens": {"type": "string", "analyzer": "kstem"}
+                        "title": {"type": "string", "analyzer": "lowercase"},
+                        "tokens": {"type": "string", "analyzer": "kstem"}
                     }
                 },
                 "links": {
@@ -55,9 +67,9 @@
                                     "type": "string",
                                     "analyzer": "lowercase"
                                 },
-                                "name_tokens": {
+                                "tokens": {
                                     "type": "string",
-                                    "analyzer": "stop"
+                                    "analyzer": "kstem"
                                 }
                             }
                         }
@@ -77,9 +89,9 @@
                                     "type": "string",
                                     "analyzer": "lowercase"
                                 },
-                                "name_tokens": {
+                                "tokens": {
                                     "type": "string",
-                                    "analyzer": "stop"
+                                    "analyzer": "kstem"
                                 }
                             }
                         }
@@ -92,7 +104,7 @@
                             "type": "string",
                             "analyzer": "lowercase"
                         },
-                        "ancestors_keywords": {
+                        "tokens": {
                             "type": "string",
                             "analyzer": "kstem"
                         }
@@ -103,7 +115,7 @@
                     "fields": {
                         "content": {
                             "type": "string",
-                            "analyzer": "stop"
+                            "analyzer": "kstem"
                         },
                         "plain": {
                             "type": "string",

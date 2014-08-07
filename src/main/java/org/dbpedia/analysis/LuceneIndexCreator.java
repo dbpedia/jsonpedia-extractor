@@ -4,16 +4,14 @@ import com.machinelinking.util.FileUtil;
 import com.machinelinking.wikimedia.ProcessorReport;
 import com.machinelinking.wikimedia.WikiDumpMultiThreadProcessor;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.facet.FacetsConfig;
-import org.apache.lucene.facet.taxonomy.TaxonomyWriter;
-import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter;
+import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.Version;
+import org.dbpedia.analysis.analyzers.KStemAnalyzer;
+import org.dbpedia.analysis.analyzers.LowercaseAnalyzer;
 import org.xml.sax.SAXException;
 
 import java.io.BufferedInputStream;
@@ -21,15 +19,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * <strong>IndexCreator</strong> populates a lucene faceted index with data coming form the jsonpedia processing of a wikipedia dump.
+ * <strong>IndexCreator</strong> populates a lucene index with data coming form the jsonpedia processing of a wikipedia dump.
  */
 public class LuceneIndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndexPageProcessor> {
 
-    private final FacetsConfig config = new FacetsConfig();
     private IndexWriter indexWriter;
-    private TaxonomyWriter taxonomyWriter;
 
 
     public ProcessorReport export(URL pagePrefix, InputStream is) throws IOException {
@@ -54,35 +52,30 @@ public class LuceneIndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndex
 
     /**
      *
-     * @param taxonomyPath path to the taxonomy folder
      * @param indexPath path to the index folder
      * @param appendToIndex if set to false this will delete the old index instead of appending to it
-     * @throws java.io.IOException if taxonomyPath or indexPath are not valid folders
+     * @throws java.io.IOException if indexPath is not a valid folder
      */
-    public LuceneIndexCreator(String indexPath, String taxonomyPath, boolean appendToIndex) throws IOException {
+    public LuceneIndexCreator(String indexPath, boolean appendToIndex) throws IOException {
         super();
-        Analyzer an = new StandardAnalyzer(Version.LUCENE_48);
-        IndexWriterConfig iwc = new IndexWriterConfig(Version.LUCENE_48, an);
+        Map<String,Analyzer> perField = new HashMap<>();
+        perField.put("wikipedia_page", new LowercaseAnalyzer());
+        perField.put("wikipedia_category", new LowercaseAnalyzer());
+        PerFieldAnalyzerWrapper aWrapper = new PerFieldAnalyzerWrapper(new KStemAnalyzer(), perField);
+
+        IndexWriterConfig iwc = new IndexWriterConfig(Version.LUCENE_48, aWrapper);
         File f = new File(indexPath);
         if(!f.isDirectory()){
             throw new IOException(String.format("%s is not a valid location for a index directory", indexPath));
         }
 
-        File f2 = new File(taxonomyPath);
-        if(!f2.isDirectory()){
-            throw new IOException(String.format("%s is not a valid location for a taxonomy directory", taxonomyPath));
-        }
-
         IndexWriterConfig.OpenMode op;
         Directory dir = FSDirectory.open(f);
-        Directory dir2 = new MMapDirectory(f2);
         if(appendToIndex){
             op = IndexWriterConfig.OpenMode.CREATE_OR_APPEND;
         } else {
             op = IndexWriterConfig.OpenMode.CREATE;
         }
-        config.setHierarchical("ancestors", true);
-        taxonomyWriter = new DirectoryTaxonomyWriter(dir2, op);
         iwc.setOpenMode(op);
         indexWriter = new IndexWriter(dir, iwc);
     }
@@ -94,7 +87,7 @@ public class LuceneIndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndex
 
     @Override
     public LuceneIndexPageProcessor initProcessor(int i) {
-        return new LuceneIndexPageProcessor(indexWriter, taxonomyWriter, config);
+        return new LuceneIndexPageProcessor(indexWriter);
     }
 
     @Override
@@ -107,11 +100,6 @@ public class LuceneIndexCreator extends WikiDumpMultiThreadProcessor<LuceneIndex
         try{
             indexWriter.commit();
             indexWriter.close();
-            taxonomyWriter.commit();
-            taxonomyWriter.close();
-        } catch(IOException e) {
-            throw new RuntimeException(e);
-        }
-
+        } catch(IOException e) {}
     }
 }

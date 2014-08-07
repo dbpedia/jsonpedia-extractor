@@ -10,6 +10,7 @@ import com.machinelinking.wikimedia.ProcessorReport;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.concurrent.TimeoutException;
 
 /**
  *
@@ -25,7 +26,7 @@ public class LuceneIndexMain {
 
     @Parameter(
             names = {"--output", "-o"},
-            description = "path to the folder where the index and taxonomy will be stored",
+            description = "path to the folder where the index will be stored",
             converter = FileConverter.class,
             required = true
     )
@@ -45,11 +46,10 @@ public class LuceneIndexMain {
         try {
             commander.parse(args);
             final LuceneIndexCreator c = new LuceneIndexCreator(
-                    new File(this.outputPath, "index").getPath(),
-                    new File(this.outputPath, "taxonomy").getPath(),
+                    this.outputPath.getPath(),
                     append
             );
-            final ProcessorReport rep = c.export(new URL("http://en.wikipedia.org"), inputPath);
+            final ProcessorReport rep = c.export(new URL("http://en.wikipedia.org/"), inputPath);
             System.out.println(rep);
             exitCode = 0;
         } catch(IOException ie) {
@@ -60,6 +60,9 @@ public class LuceneIndexMain {
             System.err.println(px.getMessage());
             commander.usage();
             exitCode = 2;
+        } catch(Throwable trx) {
+            trx.printStackTrace();
+            System.exit(1);
         }
 
         return exitCode;

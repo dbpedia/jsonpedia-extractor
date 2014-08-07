@@ -1,42 +1,33 @@
 package org.dbpedia.analysis;
 
-import com.google.common.base.Joiner;
 import com.machinelinking.enricher.WikiEnricher;
 import com.machinelinking.enricher.WikiEnricherFactory;
-import com.machinelinking.pagestruct.WikiTextSerializerHandlerFactory;
 import com.machinelinking.parser.DocumentSource;
-import com.machinelinking.parser.WikiTextParser;
-import com.machinelinking.parser.WikiTextParserException;
 import com.machinelinking.serializer.JSONSerializer;
 import com.machinelinking.util.JSONUtils;
 import com.machinelinking.wikimedia.PageProcessor;
 import com.machinelinking.wikimedia.WikiPage;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.facet.FacetField;
-import org.apache.lucene.facet.FacetsConfig;
-import org.apache.lucene.facet.taxonomy.TaxonomyWriter;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexWriter;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.elasticsearch.common.inject.internal.Join;
+import org.codehaus.jackson.node.ArrayNode;
+import org.codehaus.jackson.util.TokenBuffer;
 
 import java.io.*;
 import java.net.URL;
-import java.util.Arrays;
 
 public class LuceneIndexPageProcessor implements PageProcessor {
     private long processedPages = 0;
     private long errorPages = 0;
 
     private final IndexWriter indexWriter;
-    private final TaxonomyWriter taxonomyWriter;
-    private final FacetsConfig config;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public LuceneIndexPageProcessor(IndexWriter indexWriter, TaxonomyWriter taxonomyWriter, FacetsConfig config){
-        this.taxonomyWriter = taxonomyWriter;
+    public LuceneIndexPageProcessor(IndexWriter indexWriter){
         this.indexWriter = indexWriter;
-        this.config = config;
     }
 
     /**
@@ -56,11 +47,11 @@ public class LuceneIndexPageProcessor implements PageProcessor {
     }
 
     /**
-     * indexes a single page into the faceted index
-     * @param root root of the json tree.
-     * @throws IOException
+     * indexes a single page into elasticsearch
+     * @param root root of the json tree
+     * @throws java.io.IOException
      */
-    private void indexSections(JsonNode root, String pageTitle) throws IOException {
+    private boolean indexSections(JsonNode root, String pageTitle) throws IOException {
         JsonNode sections = root.path("sections");
 
         if (sections.isMissingNode()) {
@@ -68,40 +59,57 @@ public class LuceneIndexPageProcessor implements PageProcessor {
         }
 
         String[] cats = mapper.readValue(root.path("categories").path("content"), String[].class);
-        String categories = cats == null ? "" : Joiner.on(' ').join(cats);
-
-        JsonNode currentSection = sections.path(0);
-        int section_idx = 1;
-        while(!currentSection.isMissingNode()){
-            Document doc = new Document();
-            doc.add(new FacetField("wikipedia_page", pageTitle));
-            doc.add(new FacetField("section", currentSection.path("title").getTextValue()));
-            String[] ancestors = getAncestors(sections, currentSection);
-
-            if(categories != ""){
-                doc.add(new FacetField("wikipedia_categories", categories));
-
-            }
-            if(ancestors.length > 0){
-                doc.add(new FacetField("ancestors", ancestors));
-            }
-            //TODO: links and refs
-            try {
-                indexWriter.addDocument(config.build(taxonomyWriter, doc));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            currentSection = sections.path(section_idx);
-            section_idx++;
+        if(cats == null){
+            cats = new String[]{};
         }
 
+        ArrayNode arr = (ArrayNode)sections.path(0);
+        for(JsonNode currentSection: arr){
+            Document doc = new Document();
+            doc.add(new StringField("wikipedia_page", pageTitle, Field.Store.YES));
+            for(String cat: cats){
+                doc.add(new StringField("wikipedia_categories", cat, Field.Store.YES));
+            }
+            doc.add(new StringField("section", currentSection.path("title").getTextValue(), Field.Store.YES));
+            for(String ancestor: getAncestors(sections, currentSection)){
+                doc.add(new StringField("ancestors", ancestor, Field.Store.YES));
+            }
+            indexWriter.addDocument(doc);
+        }
+
+
+//        JsonNode currentSection = sections.path(0);
+//        int currentSectionIdx = 1;
+//        while(!currentSection.isMissingNode()){
+//            b = jsonBuilder().startObject();
+//            b.field("wikipedia_page", pageTitle);
+//            b.field("wikipedia_categories", cats);
+//            b.field("section", currentSection.path("title").getTextValue());
+//            String[] ancestors = getAncestors(sections, currentSection);
+//            b.field("ancestors", ancestors);
+//            addLinks("links", links, currentSectionIdx, b);
+//            addLinks("references", references, currentSectionIdx, b);
+//            currentSection = sections.path(currentSectionIdx);
+//            b.endObject();
+//            bulkRequest.add(client.prepareIndex(indexName, typeName).setSource(b));
+//
+//            // next section
+//            currentSectionIdx++;
+//        }
+//
+//        if(bulkRequest.numberOfActions() > 1){
+//            BulkResponse bulkResponse = bulkRequest.execute().actionGet();
+//            return !bulkResponse.hasFailures();
+//        }
+        return true;
     }
 
     @Override
     public void processPage(String pagePrefix, String threadId, WikiPage page) {
         try {
-            final ByteArrayOutputStream jsonBuffer = new ByteArrayOutputStream();
-            final JSONSerializer serializer = new JSONSerializer(jsonBuffer);
+            TokenBuffer buffer = JSONUtils.createJSONBuffer();
+//            final ByteArrayOutputStream jsonBuffer = new ByteArrayOutputStream();
+            final JSONSerializer serializer = new JSONSerializer(buffer);
 
 //            final WikiTextParser parser = new WikiTextParser(
 //                    WikiTextSerializerHandlerFactory.getInstance().createSerializerHandler(serializer)
@@ -112,24 +120,24 @@ public class LuceneIndexPageProcessor implements PageProcessor {
 
             enricher.enrichEntity(
                     new DocumentSource(
-                            new URL("http://en.wikipedia.org/"),
+                            new URL(pagePrefix),
                             page.getContent()
                     ),
                     serializer
             );
 
-            final JsonNode root = JSONUtils.parseJSON(jsonBuffer.toString()); // TODO: optimize
+            final JsonNode root = JSONUtils.bufferToJSONNode(buffer);
             indexSections(root, page.getTitle());
             processedPages++;
-            if(processedPages % 100 == 0){
-                System.out.println("*************************************************");
-            }
 //        } catch (IOException|WikiTextParserException|RuntimeException exc) {
         } catch(Exception e) {
 //            e.printStackTrace();
             errorPages++;
         }
 
+        if((processedPages + errorPages) % 100 == 0){
+            System.out.println("*************************************************");
+        }
     }
 
     @Override

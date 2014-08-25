@@ -99,11 +99,14 @@ public class ElasticsearchPageProcessor implements PageProcessor {
         return ancestors_str;
     }
 
-    private boolean indexPage(JsonNode root, String pageTitle) throws IOException {
+    private boolean indexPage(JsonNode root, WikiPage page) throws IOException {
+        String pageTitle = page.getTitle();
+        int id = page.getId();
         XContentBuilder b = jsonBuilder()
                 .startObject()
                     .field("title", pageTitle)
-                    .field("content", root.asText())
+                    .field("page_id", id)
+                    .rawField("content", mapper.writeValueAsBytes(root))
                 .endObject();
         return client.prepareIndex(indexName, pageTypeName).setSource(b).execute().actionGet().isCreated();
     }
@@ -113,7 +116,9 @@ public class ElasticsearchPageProcessor implements PageProcessor {
      * @param root root of the json tree
      * @throws java.io.IOException
      */
-    private boolean indexSections(JsonNode root, String pageTitle) throws IOException {
+    private boolean indexSections(JsonNode root, WikiPage page) throws IOException {
+        String pageTitle = page.getTitle();
+        int pageId = page.getId();
         JsonNode sections = root.path("sections");
         Link[] links = getLinks(root.path("links"));
         Link[] references = getLinks(root.path("references"));
@@ -135,9 +140,10 @@ public class ElasticsearchPageProcessor implements PageProcessor {
         int currentSectionIdx = 1;
         while(!currentSection.isMissingNode()){
             b = jsonBuilder().startObject();
-            b.field("wikipedia_page", pageTitle);
-            b.field("wikipedia_categories", cats);
-            b.field("section", currentSection.path("title").getTextValue());
+            b.field("page_id", pageId);
+            b.field("page_title", pageTitle);
+            b.field("page_categories", cats);
+            b.field("section_title", currentSection.path("title").getTextValue());
             String[] ancestors = getAncestors(sections, currentSection);
             b.field("ancestors", ancestors);
             addLinks("links", links, currentSectionIdx, b);
@@ -164,7 +170,8 @@ public class ElasticsearchPageProcessor implements PageProcessor {
             final JSONSerializer serializer = new JSONSerializer(buffer);
 
             final WikiEnricher enricher = WikiEnricherFactory.getInstance().createFullyConfiguredInstance(
-                    WikiEnricherFactory.Extractors
+                    WikiEnricherFactory.Extractors,
+                    WikiEnricherFactory.Structure
             );
 
             enricher.enrichEntity(
@@ -175,9 +182,9 @@ public class ElasticsearchPageProcessor implements PageProcessor {
                     serializer
             );
             final JsonNode root = JSONUtils.bufferToJSONNode(buffer);
-            boolean success = indexPage(root, page.getTitle());
-            boolean success2 = indexSections(root, page.getTitle());
-            if(success){
+            boolean successPage = indexPage(root, page);
+            boolean successSections = indexSections(root, page);
+            if(successPage && successSections){
                 processedPages++;
             } else {
                 errorPages++;

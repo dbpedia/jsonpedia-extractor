@@ -28,8 +28,12 @@
                     "type": "string",
                     "analyzer": "lowercase"
                 },
+                "id": {
+                    "type": "integer"
+                },
                 "content": {
-                    "type": "string",
+                    "type": "object",
+                    "enabled": "false",
                     "store": "false",
                     "index": "no"
                 }
@@ -37,19 +41,21 @@
         },
         "section": {
             "properties": {
-                "wikipedia_page": {
+                "page_title": {
                     "type": "string",
                     "analyzer": "lowercase"
                 },
-                "wikipedia_categories": {
+                "page_id": {
+                    "type": "integer"
+                },
+                "page_categories": {
                     "type": "string",
                     "analyzer": "lowercase"
                 },
-                
-                "title": {
+                "section_title": {
                     "type": "multi_field",
                     "fields": {
-                        "title": {"type": "string", "analyzer": "lowercase"},
+                        "section_title": {"type": "string", "analyzer": "lowercase"},
                         "tokens": {"type": "string", "analyzer": "kstem"}
                     }
                 },

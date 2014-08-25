@@ -26,14 +26,15 @@ jQuery(document).ready(function($) {
     search_url: 'http://elasticsearch:9200/jsonpedia/section/_search?',
     search_index: 'elasticsearch',
     facets: [
-        {'field':'title', 'display': 'Section Title'},
-        {'field':'wikipedia_page', 'display': 'Page Title'},
-        {'field':'wikipedia_categories', 'display': 'Categories'},
+        {'field':'section_title', 'display': 'Section Title'},
+        {'field':'section_title.tokens', 'display': 'Section Title Keywords'},
+        {'field':'page_title', 'display': 'Page Title'},
+        {'field':'page_categories', 'display': 'Categories'},
         {'field':'ancestors', 'display': 'Ancestors'},
         {'field':'ancestors.tokens', 'display': 'Ancestors Keywords'},
-        {'field':'references.name', 'display': 'Reference Label'},
-        {'field':'references.name.tokens', 'display': 'Reference Label Keywords'},
-        {'field':'references.url', 'display': 'Reference URL'}
+        // {'field':'references.name', 'display': 'Reference Label'},
+        // {'field':'references.name.tokens', 'display': 'Reference Label Keywords'},
+        // {'field':'references.url', 'display': 'Reference URL'}
     ],
     paging: {
       from: 0,

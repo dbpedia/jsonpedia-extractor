@@ -9,3 +9,4 @@ gradlew.bat
 *.iws
 build
 out
+*.pyc

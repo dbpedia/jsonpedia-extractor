@@ -1,0 +1,6 @@
+elasticsearch >=1.0.0, <2.0.0
+flask >= 0.10.1, <0.11.0
+requests >=2.4.0, <2.5.0
+
+# old and outdated
+jsonpath

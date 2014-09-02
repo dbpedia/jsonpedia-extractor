@@ -69,7 +69,7 @@ def main(elasticsearch, format, output):
 
     de = DiscograpyExtractor(hosts)
 
-    if format=='json':
+    if format == 'json':
         out = []
         for p, n in de.get_discography():
             out.append([p, n])

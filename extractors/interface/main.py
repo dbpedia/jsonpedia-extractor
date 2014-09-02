@@ -17,7 +17,7 @@ def make_json(data, code=200):
     res.headers['Content-Type'] = 'application/json'
     return res
 
-@app.route('/es/', methods=['POST'])
+@app.route('/es', methods=['POST'])
 def slash():
     code = request.form.get('code', '')
     if not code:
@@ -29,9 +29,10 @@ def slash():
     g, l = {}, {}
     try:
         exec(code, g, l)
-    except Exception, e:
+    except BaseException as e:
         return make_json(
-            {'success': False, 'message': 'error while executing code'},
+            # {'success': False, 'message': 'error while executing code'},
+            {'success': False, 'message': str(e)},
             400
         )
 
@@ -45,10 +46,11 @@ def slash():
 
     s = SimpleExtractor(ES_SETTINGS)
     try:
-        data = list(itertools.islice(s.get_values(query, function), 10))
-    except Exception, e:
+        # limited to 100 elements
+        data = list(itertools.islice(s.get_values(query, function), 100))
+    except BaseException as e:
         return make_json(
-            {'success': False, 'message': e.message},
+            {'success': False, 'message': str(e)},
             400
         )
         print e.message

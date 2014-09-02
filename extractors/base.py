@@ -118,11 +118,14 @@ class SimpleExtractor(BaseExtractor):
         :param function: the function to apply
         """
         for doc, dom in self.sections_with_content(query):
+            least_once = False
             try:
-                res = function(doc, dom)
+                for r in function(doc, dom):
+                    yield r
+                    least_once = True
             except ValueError:
-                self.processed(False)
-                continue
+                pass
 
-            self.processed(True)
-            yield res
+            # if at least one result is fetched than this section is
+            # considered a success
+            self.processed(least_once)
